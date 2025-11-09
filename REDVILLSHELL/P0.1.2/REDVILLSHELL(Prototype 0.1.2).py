@@ -24,7 +24,7 @@ def cmd_info():
     Creator                              | Villena, Red L.
     Creation Timeline                    | 10/29/25 - 10/30/25
     Version                              | Prototype 0.1.2
-Version Date                         | 10/31/25####
+    Version Date                         | 10/31/25####
     
     ────────────────────────────────────────────
     Notes by me:
@@ -44,7 +44,7 @@ def Version():
     >> 10/30/25 - Prototype 0.1.2 - Python 
     - admin command
     - administration access 
-    - head and tail for view file             
+    -            
     ''')
 
 def help():
@@ -100,19 +100,19 @@ def build_in_command():
     create <filename>                    | Create a new file
     delete <filename> or <path/file>     | Delete a file
     rename <oldname> / <newname>         | Rename a file
-    copy <path/filename> / <newpath>     | Move file #####
+    copy <path/filename> / <newpath>     | Move file ##### 0.1.3
     change <path>                        | Change directory
     check                                | List files in current directory
     clear                                | Clear the screen
-    sysinfo                              | Show your system####
-    say >"word">                         | print your word####
+    sysinfo                              | Show your system ##### 0.1.3
+    say >"word">                         | print your word ##### 0.1.3
     exit                                 | Exit REDVILLSHELL
     help                                 | Show this help message
     ---------------------------future update hehe-----------------------
     head <filename> ---| extra open      | view the first 10 line
     tail <filename> ---| args            | view the last 10 line
     Finfo <filename> or <path/filename>  | file info
-    Ffind <filename> or <path/filename>  | lahat ng file with the key######
+    Ffind <filename> or <path/filename>  | lahat ng file with the key ##### 0.1.3
     Kfind <filename> <line>              | Find where the keyword is
 
     ────────────────────────────────────────────''')
@@ -120,7 +120,7 @@ def build_in_command():
 def File_type():
      print('''
     ────────────────────────────────────────────
-               REDVILLSHELL — File Type######
+               REDVILLSHELL — File Type ##### 0.1.3
     ────────────────────────────────────────────
     F+                                    | file
     F++                                   | folder
@@ -164,7 +164,7 @@ def is_elevated():#check if 'NOW' is admin or nah
     except Exception:
         return False
 
-def relaunch_as_admin():#UAC prompt
+def relaunch_as_admin():#NON WINDOW USER
     params = " ".join([f'"{arg}"' for arg in sys.argv])
     try:
         ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, params, None, 1)
@@ -427,4 +427,5 @@ def main():
             print(f"Error: {e}")
 
 if __name__ == "__main__":
+
     main()
