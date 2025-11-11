@@ -45,13 +45,20 @@ def help():
     ────────────────────────────────────────────
                REDVILLSHELL — Command List
     ────────────────────────────────────────────
-    GENERAL:
+    INFORMATION:
       info                   | Shell information
       version                | Version info
       help                   | Show this help
       clear                  | Clear screen
       exit                   | Exit shell
-    
+      
+    GENERAL:
+      run <program>          | Run a program
+      install <program>      | Install a program/library
+      site <website>         | open a website
+      setting                | Shell settings
+      history                | Command History
+      
     ADMIN:
       admin <T/F>            | Enable/disable admin mode
       sysinfo                | Show system information
@@ -77,6 +84,7 @@ def help():
     NETWORK:
       ipconfig               | Show network info
       ssids                  | Show available ssids
+      ping                   | Check your ping
     ────────────────────────────────────────────
     ''')
 
@@ -86,6 +94,7 @@ def clear_screen():
 def main():
     admin = Admin()
     file_handler = FileHandling(admin)
+    
     reader = ReaderHandling()
     timer = Timer()
     network = Network()
