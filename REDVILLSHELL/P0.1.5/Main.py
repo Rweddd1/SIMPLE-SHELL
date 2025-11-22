@@ -1,8 +1,9 @@
 import os
 import re
 import sys
+import time
 import tkinter as tk
-from tkinter import scrolledtext
+from tkinter import scrolledtext, simpledialog
 from Utility import Admin, FileHandling, ReaderHandling, Timer, Network
 from Arithmetic import Arithmetic
 
@@ -28,6 +29,11 @@ class RedvillShellGUI:
         
         # Redirect stdout to capture print statements
         sys.stdout = self
+        
+        # Sudo session tracking
+        self.sudo_active = False
+        self.sudo_timestamp = 0
+        self.sudo_timeout = 300  # 5 minutes in seconds
         
         #OOP NG MGA POGI
         self.admin = Admin()
@@ -90,21 +96,20 @@ class RedvillShellGUI:
         #Welcome
         self.write_output(f"Welcome to REDVILLSHELL v{version}. Type 'help' for commands.\n")
     
-    def write(self, text):#std.out write redirection
-        if text.strip(): #non emp text
+    def write(self, text):
+        if text.strip():
             self.write_output(text)
         return len(text)
     
-    def flush(self):#stdout flash
+    def flush(self):
         pass
     
-    def write_output(self, text, color=None):#ourput area
+    def write_output(self, text, color=None):
         if color is None:
             color = self.current_settings['font_color']
             
         self.output_area.config(state=tk.NORMAL)
         
-        #tag color
         tag_name = f"color_{color}"
         self.output_area.tag_config(tag_name, foreground=color)
         
@@ -112,14 +117,14 @@ class RedvillShellGUI:
         self.output_area.see(tk.END)
         self.output_area.config(state=tk.DISABLED)
     
-    def update_prompt(self):#directory
+    def update_prompt(self):
         directory = os.getcwd().split(os.sep)[-1]
         if self.current_settings['prompt_style'] == 'detailed':
             self.prompt_label.config(text=f"[{directory}] >> ")
         else:
             self.prompt_label.config(text=f"{directory} >> ")
     
-    def history_up(self, event):#command history
+    def history_up(self, event):
         if self.history:
             if self.history_index == -1:
                 self.history_index = len(self.history) - 1
@@ -129,7 +134,7 @@ class RedvillShellGUI:
             self.input_entry.delete(0, tk.END)
             self.input_entry.insert(0, self.history[self.history_index])
     
-    def history_down(self, event):#navigation
+    def history_down(self, event):
         if self.history and self.history_index != -1:
             self.history_index += 1
             
@@ -140,21 +145,132 @@ class RedvillShellGUI:
                 self.input_entry.delete(0, tk.END)
                 self.input_entry.insert(0, self.history[self.history_index])
     
-    def process_command(self, event):#process
+    def check_sudo_timeout(self):
+        import time
+        if self.sudo_active:
+            if time.time() - self.sudo_timestamp > self.sudo_timeout:
+                self.sudo_active = False
+                return False
+        return self.sudo_active
+    
+    def authenticate_admin(self):
+        import time
+        
+        if self.check_sudo_timeout():#check sudo
+            self.sudo_timestamp = time.time()  #time
+            return True
+        
+        dialog = tk.Toplevel(self.root)#custom for the password
+        dialog.title("Admin Authentication")
+        dialog.geometry("400x150")
+        dialog.configure(bg='#1a1a1a')
+        dialog.transient(self.root)
+        dialog.grab_set()
+        dialog.update_idletasks()#center
+        x = (dialog.winfo_screenwidth() // 2) - (dialog.winfo_width() // 2)
+        y = (dialog.winfo_screenheight() // 2) - (dialog.winfo_height() // 2)
+        dialog.geometry(f"+{x}+{y}")
+        
+        result = {'authenticated': False}
+        
+        label = tk.Label(
+            dialog,
+            text="[admin] password for elevated privileges:",
+            bg='#1a1a1a',
+            fg='#00FF00',
+            font=('Consolas', 10)
+        )
+        label.pack(pady=20)
+        
+        #Password 
+        password_entry = tk.Entry(
+            dialog,
+            show='*',
+            bg='black',
+            fg='#00FF00',
+            font=('Consolas', 10),
+            insertbackground='#00FF00'
+        )
+        password_entry.pack(pady=10, padx=20, fill=tk.X)
+        password_entry.focus()
+        
+        def on_submit():
+            password = password_entry.get()
+            #Simple authentication - in real system, verify properly
+            if password:  
+                result['authenticated'] = True
+                dialog.destroy()
+            else:
+                password_entry.delete(0, tk.END)
+                label.config(text="Password cannot be empty. Try again:", fg='#FF0000')
+        
+        def on_cancel():
+            dialog.destroy()
+        
+        # Buttons
+        button_frame = tk.Frame(dialog, bg='#1a1a1a')
+        button_frame.pack(pady=10)
+        
+        ok_button = tk.Button(
+            button_frame,
+            text="OK",
+            command=on_submit,
+            bg='#00aa00',
+            fg='white',
+            font=('Consolas', 10)
+        )
+        ok_button.pack(side=tk.LEFT, padx=5)
+        
+        cancel_button = tk.Button(
+            button_frame,
+            text="Cancel",
+            command=on_cancel,
+            bg='#aa0000',
+            fg='white',
+            font=('Consolas', 10)
+        )
+        cancel_button.pack(side=tk.LEFT, padx=5)
+        
+        password_entry.bind('<Return>', lambda e: on_submit())
+        password_entry.bind('<Escape>', lambda e: on_cancel())
+        
+        dialog.wait_window()
+        
+        if result['authenticated']:
+            self.sudo_active = True
+            self.sudo_timestamp = time.time()
+            return True
+        return False
+    
+    def execute_sudo_command(self, cmd):
+        self.write_output(f"[sudo] executing: {cmd}\n", '#FFFF00')
+    
+        self.sudo_active = True
+        self.sudo_timestamp = time.time()
+        
+        original_admin_state = self.admin.admin_mode
+        self.admin.admin_mode = True
+        
+        try:
+            self.execute_command(cmd)#exc command in sudo
+        finally:
+            self.admin.admin_mode = original_admin_state
+    
+    def process_command(self, event):
         cmd = self.input_entry.get().strip()
         
         if not cmd:
             return
         
         if self.current_settings['history_enabled']:
-            self.history.append(cmd)#add history
+            self.history.append(cmd)
         self.history_index = -1
     
         directory = os.getcwd().split(os.sep)[-1]
-        self.write_output(f"{directory}>> {cmd}\n", '#FFFFFF')#write input
-        self.input_entry.delete(0, tk.END)#delete input
-        self.execute_command(cmd)#execute(bale dito mga arguments and command)
-        self.update_prompt()#update command
+        self.write_output(f"{directory}>> {cmd}\n", '#FFFFFF')
+        self.input_entry.delete(0, tk.END)
+        self.execute_command(cmd)
+        self.update_prompt()
         
 #------------------------------------------ Settings
     def settings(self, args):
@@ -170,7 +286,6 @@ class RedvillShellGUI:
         option = parts[0].lower()
         value = parts[1] if len(parts) > 1 else None
         
-        # Handle settings without values
         if option in ['show', 'list', 'display']:
             self._show_current_settings()
             return
@@ -181,7 +296,6 @@ class RedvillShellGUI:
             self._export_settings()
             return
         
-        # Handle settings that require values
         if value is None:
             self.write_output(f"ERROR: Setting '{option}' requires a value\n", '#FF0000')
             self._show_setting_options()
@@ -211,7 +325,7 @@ class RedvillShellGUI:
             
     def _show_current_settings(self):
         settings_text = f'''────────────────────────────────────────────
-            REDVILLSHELL — Current Settings
+            REDVILLSHELL – Current Settings
 ────────────────────────────────────────────
 Theme                    | {self.current_settings['theme']}
 Font Size                | {self.current_settings['font_size']}
@@ -226,7 +340,7 @@ Type 'setting help' for available options
 '''
         self.write_output(settings_text)
 
-    def _show_setting_options(self):#option
+    def _show_setting_options(self):
         options_text = '''────────────────────────────────────────────
               Available Settings Options
 ────────────────────────────────────────────
@@ -263,7 +377,7 @@ COLOR FORMATS:
 '''
         self.write_output(options_text)
 
-    def _change_theme(self, theme):#pogi theme
+    def _change_theme(self, theme):
         themes = {
             'matrix': {'bg': 'black', 'fg': '#00FF00'},
             'dark': {'bg': 'black', 'fg': 'white'},
@@ -290,7 +404,7 @@ COLOR FORMATS:
             self.write_output(f"Unknown theme '{theme}'\n", '#FF0000')
             self.write_output("Available themes: " + ", ".join(themes.keys()) + "\n")
 
-    def _change_font_size(self, size_str):#font
+    def _change_font_size(self, size_str):
         try:
             size = int(size_str)
             if 8 <= size <= 20:
@@ -305,7 +419,7 @@ COLOR FORMATS:
         except ValueError:
             self.write_output("Font size must be a number\n", '#FF0000')
 
-    def _change_font_color(self, color):#color mappifn
+    def _change_font_color(self, color):
         named_colors = {
             'green': '#00FF00',
             'red': '#FF0000',
@@ -328,16 +442,14 @@ COLOR FORMATS:
         color_lower = color.lower()
         
         if color_lower in named_colors:
-            final_color = named_colors[color_lower]#r colors
-        
-        elif re.match(r'^#[0-9A-Fa-f]{6}$', color):#hex
+            final_color = named_colors[color_lower]
+        elif re.match(r'^#[0-9A-Fa-f]{6}$', color):
             final_color = color.upper()
         else:
             self.write_output(f"✗ Invalid color format '{color}'\n", '#FF0000')
             self.write_output("Use hex (#00FF00) or named colors (green, red, blue, etc.)\n")
             return
         
-        # Apply the color
         self.output_area.config(fg=final_color)
         self.input_entry.config(fg=final_color, insertbackground=final_color)
         self.prompt_label.config(fg=final_color)
@@ -345,7 +457,6 @@ COLOR FORMATS:
         self.write_output(f"Font color changed to {final_color}\n", '#00FF00')
 
     def _change_bg_color(self, color):
-        """Change the background color"""
         named_colors = {
             'black': '#000000',
             'white': '#FFFFFF',
@@ -377,13 +488,12 @@ COLOR FORMATS:
         self.write_output(f"Background color changed to {final_color}\n", '#00FF00')
 
     def _apply_colors(self, bg, fg):
-        """Helper to apply both background and foreground colors"""
         self.output_area.config(bg=bg, fg=fg)
         self.input_entry.config(bg=bg, fg=fg, insertbackground=fg)
         self.prompt_label.config(bg=bg, fg=fg)
         self.root.configure(bg=bg)
 
-    def _change_prompt_style(self, style):#prompt desig
+    def _change_prompt_style(self, style):
         style_lower = style.lower()
         if style_lower in ['directory', 'basic', 'simple']:
             self.current_settings['prompt_style'] = 'directory'
@@ -396,7 +506,7 @@ COLOR FORMATS:
         else:
             self.write_output("Available styles: directory, detailed\n", '#FF0000')
 
-    def _toggle_autocomplete(self, value):#other usr validsba
+    def _toggle_autocomplete(self, value):
         if value.lower() in ['on', 'true', 'yes', '1', 'enable']:
             self.current_settings['autocomplete'] = True
             self.write_output("Auto-complete enabled\n", '#00FF00')
@@ -406,7 +516,7 @@ COLOR FORMATS:
         else:
             self.write_output("Use 'on' or 'off'\n", '#FF0000')
 
-    def _manage_history(self, action):#more history
+    def _manage_history(self, action):
         action_lower = action.lower()
         if action_lower == 'clear':
             self.history.clear()
@@ -422,7 +532,6 @@ COLOR FORMATS:
             self.write_output("Use 'history clear', 'history on', or 'history off'\n", '#FF0000')
     
     def _reset_settings(self):
-        """Reset all settings to default"""
         self.current_settings = {
             'theme': 'matrix',
             'font_size': 10,
@@ -441,9 +550,8 @@ COLOR FORMATS:
         self.write_output("All settings reset to default\n", '#00FF00')
     
     def _export_settings(self):
-        """Export all current settings"""
         export_text = f'''────────────────────────────────────────────
-            REDVILLSHELL — Settings Export
+            REDVILLSHELL – Settings Export
 ────────────────────────────────────────────
 setting theme {self.current_settings['theme']}
 setting fontsize {self.current_settings['font_size']}
@@ -459,7 +567,15 @@ Copy these commands to restore your settings
         self.write_output(export_text)
 #---------------------------------------------
     
-    def execute_command(self, cmd):
+    def execute_command(self, cmd):#sudo checker pag first ba or nah
+        if cmd.lower().startswith('sudo '):
+            remaining_cmd = cmd[5:].strip()  #! sudo prefi
+            if remaining_cmd:
+                self.execute_sudo_command(remaining_cmd)
+            else:
+                self.write_output("ERROR: sudo requires a command\n", '#FF0000')
+            return
+        
         parts = cmd.split(None, 1)
         command = parts[0].lower()
         args = parts[1] if len(parts) > 1 else ''
@@ -479,9 +595,20 @@ Copy these commands to restore your settings
                 self.write_output("Goodbye! Pahinga na ako.\n")
                 self.root.after(1000, self.root.quit)
             
-            #ADMIN
+            #ADMIN 
             elif command == 'admin':
-                self.admin.toggle_admin_mode(args)
+                if args.upper() in ['T', 'TRUE', 'YES', '1']:
+                    if self.authenticate_admin():  # REQUIRES PASSWORD
+                        self.admin.admin_mode = True
+                        self.write_output("ADMIN MODE ENABLED - Full elevated session\n", '#00FF00')
+                    else:
+                        self.write_output("Admin authentication failed\n", '#FF0000')
+                elif args.upper() in ['F', 'FALSE', 'NO', '0']:
+                    self.admin.admin_mode = False
+                    self.sudo_active = False
+                    self.write_output("ADMIN MODE DISABLED\n", '#00FF00')
+                else:
+                    self.write_output(f"ERROR: '{args}' not recognized. Use T/TRUE or F/FALSE\n", '#FF0000')
             elif command == 'sysinfo':
                 self.admin.get_system_info()
             elif command == 'hardware':
@@ -552,7 +679,7 @@ Copy these commands to restore your settings
             elif command == 'history':
                 if self.history:
                     self.write_output("Command History:\n")
-                    for i, h in enumerate(self.history[:-1], 1):  # Exclude current command
+                    for i, h in enumerate(self.history[:-1], 1):
                         self.write_output(f"  {i}. {h}\n")
                 else:
                     self.write_output("No command history yet.\n")
@@ -600,9 +727,7 @@ Copy these commands to restore your settings
                 self.calc.mem_recall()
             elif command == 'mclear':
                 self.calc.mem_clear()
-            elif command == 'constants':
-                self.calc.constants()
-            else:#command calculation handling
+            else:
                 if any(op in cmd for op in ['+', '-', '*', '/', '**', '%', '(', ')']):
                     if re.match(r'^[\d\+\-\*\/\%\(\)\.\s\*\*]+$', cmd):
                         self.calc.calculate(cmd)
@@ -614,14 +739,14 @@ Copy these commands to restore your settings
         except Exception as e:
             self.write_output(f"ERROR: {e}\n", '#FF0000')
     
-    def clear_screen(self):#delete every ouput nyheheh
+    def clear_screen(self):
         self.output_area.config(state=tk.NORMAL)
         self.output_area.delete(1.0, tk.END)
         self.output_area.config(state=tk.DISABLED)
     
     def cmd_help(self):
         help_text = '''────────────────────────────────────────────
-           REDVILLSHELL — Command List
+           REDVILLSHELL – Command List
 ────────────────────────────────────────────
 INFORMATION:
   info                   | Shell information
@@ -636,9 +761,10 @@ GENERAL:
   site <website>         | open a website
   setting                | Shell settings
   history                | Command History
+  sudo <command>         | Run command with elevated privileges (NO PASSWORD)
   
 ADMIN:
-  admin <T/F>            | Enable/disable admin mode
+  admin <T/F>            | Enable/disable admin mode (REQUIRES PASSWORD)
   sysinfo                | Show system information
   hardware               | Show hardware information
   
@@ -681,9 +807,18 @@ MATH:
   round <num> <dec>      | Round number
   last                   | Show last result
   mstore/mrecall/mclear  | Memory operations
-  constants              | Math constants
 ────────────────────────────────────────────
-'''
+SUDO USAGE:
+  sudo <command>         | Execute any command with admin rights
+  Example: sudo delete f++ folder_name
+  Example: sudo install package_name
+  Note: NO password required (5 min session timeout)
+  
+ADMIN USAGE:
+  admin T                | Enable full admin session
+  admin F                | Disable admin session  
+  Note: REQUIRES PASSWORD authentication
+────────────────────────────────────────────'''
         self.write_output(help_text)
     
     def cmd_info(self):
@@ -720,6 +855,8 @@ Notes by me:
 - Better handling
 - OS settings
 - Package simulation 
+- Sudo command (NO PASSWORD)
+- Admin mode (REQUIRES PASSWORD)
 ────────────────────────────────────────────
 '''
         self.write_output(version_text)
