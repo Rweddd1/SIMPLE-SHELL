@@ -1,6 +1,5 @@
 import math
 import re
-import numpy#
 
 class Arithmetic:
     
@@ -19,51 +18,51 @@ class Arithmetic:
                 print("ERROR: Invalid expression")#invalid op
                 return
             if not re.match(r'^[\d\+\-\*\/\%\(\)\.\*\*]+$', expression):
-                print("ERROR: Invalid characters in expression")#num only operation
+                print("ERROR: Invalid characters in expression\n")#num only operation
                 return
             
             result = eval(expression)
             self.last_result = result
-            print(f"Result: {result}")#results
+            print(f"Result: {result}\n")#results
             
         except ZeroDivisionError:
-            print("ERROR: Division by zero")
+            print("ERROR: Division by zero\n")
         except SyntaxError:
-            print("ERROR: Invalid syntax")
+            print("ERROR: Invalid syntax\n")
         except Exception as e:
-            print(f"ERROR: {e}")
+            print(f"ERROR: {e}\n")
     
     def add(self, args):#add
         try:
             numbers = [float(x) for x in args.split()]
             if len(numbers) < 2:
-                print("ERROR: Need at least 2 numbers")
+                print("ERROR: Need at least 2 numbers\n")
                 return
             result = sum(numbers)
             self.last_result = result
-            print(f"Sum: {result}")
+            print(f"Sum: {result}\n")
         except ValueError:
-            print("ERROR: Invalid numbers")
+            print("ERROR: Invalid numbers\n")
     
     def subtract(self, args):#sub
         try:
             numbers = [float(x) for x in args.split()]
             if len(numbers) < 2:
-                print("ERROR: Need at least 2 numbers")
+                print("ERROR: Need at least 2 numbers\n")
                 return
             result = numbers[0]
             for num in numbers[1:]:
                 result -= num
             self.last_result = result
-            print(f"Result: {result}")
+            print(f"Result: {result}\n")
         except ValueError:
-            print("ERROR: Invalid numbers")
+            print("ERROR: Invalid numbers\n")
     
     def multiply(self, args):#mul
         try:
             numbers = [float(x) for x in args.split()]
             if len(numbers) < 2:
-                print("ERROR: Need at least 2 numbers")
+                print("ERROR: Need at least 2 numbers\n")
                 return
             result = 1
             for num in numbers:
@@ -71,126 +70,126 @@ class Arithmetic:
             self.last_result = result
             print(f"Product: {result}")
         except ValueError:
-            print("ERROR: Invalid numbers")
+            print("ERROR: Invalid numbers\n")
     
     def divide(self, args):#div
         try:
             numbers = [float(x) for x in args.split()]
             if len(numbers) < 2:
-                print("ERROR: Need at least 2 numbers")
+                print("ERROR: Need at least 2 numbers\n")
                 return
             result = numbers[0]
             for num in numbers[1:]:
                 if num == 0:
-                    print("ERROR: Division by zero")
+                    print("ERROR: Division by zero\n")
                     return
                 result /= num
             self.last_result = result
-            print(f"Result: {result}")
+            print(f"Result: {result}\n")
         except ValueError:
-            print("ERROR: Invalid numbers")
+            print("ERROR: Invalid numbers\n")
     
     def power(self, args):#power
         try:
             parts = args.split()
             if len(parts) != 2:
-                print("ERROR: Use format 'pow <base> <exponent>'")
+                print("ERROR: Use format 'pow <base> <exponent>'\n")
                 return
             base = float(parts[0])
             exp = float(parts[1])
             result = base ** exp
             self.last_result = result
-            print(f"Result: {result}")
+            print(f"Result: {result}\n")
         except ValueError:
-            print("ERROR: Invalid numbers")
+            print("ERROR: Invalid numbers\n")
     
     def sqrt(self, args):#squareroots
         try:
             num = float(args.strip())
             if num < 0:
-                print("ERROR: Cannot calculate square root of negative number")
+                print("ERROR: Cannot calculate square root of negative number\n")
                 return
             result = math.sqrt(num)
             self.last_result = result
-            print(f"Result: {result}")
+            print(f"Result: {result}\n")
         except ValueError:
-            print("ERROR: Invalid number")
+            print("ERROR: Invalid number\n")
     
     def mod(self, args):#modulo
         try:
             parts = args.split()
             if len(parts) != 2:
-                print("ERROR: Use format 'mod <number> <divisor>'")
+                print("ERROR: Use format 'mod <number> <divisor>'\n")
                 return
             num = float(parts[0])
             divisor = float(parts[1])
             if divisor == 0:
-                print("ERROR: Division by zero")
+                print("ERROR: Division by zero\n")
                 return
             result = num % divisor
             self.last_result = result
-            print(f"Result: {result}")
+            print(f"Result: {result}\n")
         except ValueError:
-            print("ERROR: Invalid numbers")
+            print("ERROR: Invalid numbers\n")
     
     def factorial(self, args):#factorial
         try:
             num = int(args.strip())
             if num < 0:
-                print("ERROR: Factorial not defined for negative numbers")
+                print("ERROR: Factorial not defined for negative numbers\n")
                 return
             if num > 170:
-                print("ERROR: Number too large for factorial")
+                print("ERROR: Number too large for factorial\n")
                 return
             result = math.factorial(num)
             self.last_result = result
-            print(f"Result: {result}")
+            print(f"Result: {result}\n")
         except ValueError:
-            print("ERROR: Invalid number")
+            print("ERROR: Invalid number\n")
     
     def percentage(self, args):#percentage
         try:
             parts = args.split()
             if len(parts) != 2:
-                print("ERROR: Use format 'percent <percentage> <of number>'")
+                print("ERROR: Use format 'percent <percentage> <of number>'\n")
                 return
             percentage = float(parts[0])
             of_number = float(parts[1])
             result = (percentage / 100) * of_number
             self.last_result = result
-            print(f"Result: {result} ({percentage}% of {of_number})")
+            print(f"Result: {result} ({percentage}% of {of_number})\n")
         except ValueError:
-            print("ERROR: Invalid numbers")
+            print("ERROR: Invalid numbers\n")
 #soh cah toa nightmare-----
     def sin_calc(self, args):
         try:
             angle = float(args.strip())
             result = math.sin(math.radians(angle))
             self.last_result = result
-            print(f"sin({angle}°) = {result}")
+            print(f"sin({angle}°) = {result}\n")
         except ValueError:
-            print("ERROR: Invalid number")
+            print("ERROR: Invalid number\n")
     
     def cos_calc(self, args):
         try:
             angle = float(args.strip())
             result = math.cos(math.radians(angle))
             self.last_result = result
-            print(f"cos({angle}°) = {result}")
+            print(f"cos({angle}°) = {result}\n")
         except ValueError:
-            print("ERROR: Invalid number")
+            print("ERROR: Invalid number\n")
     
     def tan_calc(self, args):
         try:
             angle = float(args.strip())
             result = math.tan(math.radians(angle))
             self.last_result = result
-            print(f"tan({angle}°) = {result}")
+            print(f"tan({angle}°) = {result}\n")
         except ValueError:
-            print("ERROR: Invalid number")
+            print("ERROR: Invalid number\n")
 #o(n)-----------------------------
     def log_calc(self, args):
-        """Logarithm base 10: log 100"""
+
         try:
             num = float(args.strip())
             if num <= 0:
