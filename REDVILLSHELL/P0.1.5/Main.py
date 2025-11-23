@@ -27,23 +27,33 @@ class RedvillShellGUI:
             'history_enabled': True
         }
         
+        # Command list for autocomplete
+        self.commands = [
+            'help', 'info', 'version', 'clear', 'exit', 'admin', 'sysinfo', 
+            'hardware', 'setting', 'open', 'run', 'create', 'install', 'delete', 
+            'rename', 'check', 'change', 'finfo', 'read', 'find', 'time', 'timer', 
+            'ipconfig', 'ssids', 'connect', 'ping', 'history', 'calc', 'add', 'sub', 
+            'mul', 'div', 'pow', 'sqrt', 'mod', 'fact', 'percent', 'sin', 'cos', 
+            'tan', 'log', 'ln', 'abs', 'round', 'last', 'mstore', 'mrecall', 'mclear', 'sudo'
+        ]
+        
         # Redirect stdout to capture print statements
         sys.stdout = self
         
         # Sudo session tracking
         self.sudo_active = False
         self.sudo_timestamp = 0
-        self.sudo_timeout = 300  # 5 minutes in seconds
+        self.sudo_timeout = 300
         
-        #OOP NG MGA POGI
+        # OOP NG MGA POGI
         self.admin = Admin()
         self.file_handler = FileHandling(self.admin)
         self.reader = ReaderHandling()
         self.timer = Timer()
         self.network = Network()
-        self.calc = Arithmetic()  
+        self.calc = Arithmetic()
         
-        #history
+        # history
         self.history = []
         self.history_index = -1
         
@@ -52,7 +62,7 @@ class RedvillShellGUI:
             root,
             wrap=tk.WORD,
             bg='black',
-            fg='#00FF00',  
+            fg='#00FF00',
             font=('Consolas', 10),
             insertbackground='#00FF00',
             selectbackground='#404040',
@@ -63,11 +73,11 @@ class RedvillShellGUI:
         )
         self.output_area.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
         
-        #frame
+        # frame
         input_frame = tk.Frame(root, bg='black')
         input_frame.pack(fill=tk.X, padx=10, pady=5)
         
-        #font label(yung sa una)
+        # font label
         self.prompt_label = tk.Label(
             input_frame,
             text=f"{os.getcwd().split(os.sep)[-1]} >> ",
@@ -76,6 +86,18 @@ class RedvillShellGUI:
             font=('Consolas', 10)
         )
         self.prompt_label.pack(side=tk.LEFT)
+        
+        # Suggestion label (appears above input)
+        self.suggestion_label = tk.Label(
+            root,
+            text="",
+            bg='black',
+            fg='#006600',  # Darker green for suggestions
+            font=('Consolas', 9, 'italic'),
+            anchor='w',
+            justify='left'
+        )
+        self.suggestion_label.pack(fill=tk.X, padx=10, pady=(0, 0))
         
         # Input entry
         self.input_entry = tk.Entry(
@@ -91,10 +113,171 @@ class RedvillShellGUI:
         self.input_entry.bind('<Return>', self.process_command)
         self.input_entry.bind('<Up>', self.history_up)
         self.input_entry.bind('<Down>', self.history_down)
+        self.input_entry.bind('<KeyRelease>', self.update_suggestions)
+        self.input_entry.bind('<Tab>', self.complete_suggestion)
         self.input_entry.focus()
         
-        #Welcome
+        # Welcome
         self.write_output(f"Welcome to REDVILLSHELL v{version}. Type 'help' for commands.\n")
+    
+    def update_suggestions(self, event):
+        """Update suggestions as user types"""
+        if not self.current_settings['autocomplete']:
+            self.suggestion_label.config(text="")
+            return
+        
+        # Ignore special keys
+        if event.keysym in ['Up', 'Down', 'Left', 'Right', 'Return', 'Tab', 
+                            'Shift_L', 'Shift_R', 'Control_L', 'Control_R', 
+                            'Alt_L', 'Alt_R', 'Escape']:
+            return
+        
+        current_input = self.input_entry.get()
+        
+        if not current_input:
+            self.suggestion_label.config(text="")
+            return
+        
+        parts = current_input.split()
+        
+        if len(parts) == 0:
+            self.suggestion_label.config(text="")
+            return
+        
+        # First word 
+        if len(parts) == 1:
+            prefix = parts[0].lower()
+            matching_commands = [cmd for cmd in self.commands if cmd.startswith(prefix)]
+            
+            if matching_commands and matching_commands[0] != prefix:
+                suggestion = matching_commands[0]
+                # \Show remaining part of suggestion
+                remaining = suggestion[len(prefix):]
+                self.suggestion_label.config(
+                    text=f"  {prefix}{remaining}  (Tab to complete)",
+                    fg='#006600'  #command suggest
+                )
+            else:
+                self.suggestion_label.config(text="")
+        
+        #suggest files/directories
+        else:
+            command = parts[0].lower()
+            current_path = parts[-1]
+            
+            file_commands = ['open', 'run', 'delete', 'rename', 'read', 'find', 
+                           'finfo', 'create', 'change']#suggest only wrk here
+            
+            if command in file_commands:
+                try:
+                    if os.path.isdir(current_path):#directory search
+                        search_dir = current_path
+                        search_prefix = ""
+                    else:
+                        search_dir = os.path.dirname(current_path) or "."
+                        search_prefix = os.path.basename(current_path).lower()
+                
+                    items = []#match file
+                    try:
+                        for item in os.listdir(search_dir):
+                            if item.lower().startswith(search_prefix):
+                                full_path = os.path.join(search_dir, item) if search_dir != "." else item
+                                if os.path.isdir(full_path):
+                                    items.append((item, True))  # True = directory
+                                else:
+                                    items.append((item, False))  # False = file
+                    except PermissionError:
+                        pass
+                    
+                    if items:
+                        items.sort(key=lambda x: (not x[1], x[0]))
+                        
+                        suggestion_text = "  Suggestions: "#suggest
+                        shown = 0
+                        for item, is_dir in items[:3]:
+                            if is_dir:
+                                suggestion_text += f"[{item}/] "
+                            else:
+                                suggestion_text += f"{item} "
+                            shown += 1
+                        
+                        if len(items) > 3:
+                            suggestion_text += f"(+{len(items)-3} more)"
+                        
+                        self.suggestion_label.config(
+                            text=suggestion_text,
+                            fg='#008800'  #for file suggestions
+                        )
+                    else:
+                        self.suggestion_label.config(text="")
+                
+                except Exception:
+                    self.suggestion_label.config(text="")
+            else:
+                self.suggestion_label.config(text="")
+    
+    def complete_suggestion(self, event):#tqb
+        current_input = self.input_entry.get()
+        parts = current_input.split()
+        
+        if not parts:
+            return 'break'
+        
+        if len(parts) == 1:
+            prefix = parts[0].lower()
+            matching_commands = [cmd for cmd in self.commands if cmd.startswith(prefix)]
+            
+            if matching_commands:
+                self.input_entry.delete(0, tk.END)
+                self.input_entry.insert(0, matching_commands[0] + " ")
+                self.suggestion_label.config(text="")
+        
+        else:
+            command = parts[0].lower()
+            current_path = parts[-1]
+            
+            file_commands = ['open', 'run', 'delete', 'rename', 'read', 'find', 
+                           'finfo', 'create', 'change']
+            
+            if command in file_commands:
+                try:
+                    if os.path.isdir(current_path):
+                        search_dir = current_path
+                        search_prefix = ""
+                    else:
+                        search_dir = os.path.dirname(current_path) or "."
+                        search_prefix = os.path.basename(current_path).lower()
+                    
+                    items = []
+                    try:
+                        for item in os.listdir(search_dir):
+                            if item.lower().startswith(search_prefix):
+                                full_path = os.path.join(search_dir, item) if search_dir != "." else item
+                                items.append((item, os.path.isdir(full_path)))
+                    except PermissionError:
+                        pass
+                    
+                    if items:
+                        items.sort(key=lambda x: (not x[1], x[0]))
+                        completed_item = items[0][0]
+                        
+                        new_input = " ".join(parts[:-1]) + " "
+                        if search_dir != ".":
+                            new_input += os.path.join(search_dir, completed_item)
+                        else:
+                            new_input += completed_item
+                        
+                        if items[0][1]:
+                            new_input += "/"
+                        
+                        self.input_entry.delete(0, tk.END)
+                        self.input_entry.insert(0, new_input)
+                        self.suggestion_label.config(text="")
+                
+                except Exception:
+                    pass
+        
+        return 'break'  #Tab behavior
     
     def write(self, text):
         if text.strip():
@@ -156,17 +339,17 @@ class RedvillShellGUI:
     def authenticate_admin(self):
         import time
         
-        if self.check_sudo_timeout():#check sudo
-            self.sudo_timestamp = time.time()  #time
+        if self.check_sudo_timeout():
+            self.sudo_timestamp = time.time()
             return True
         
-        dialog = tk.Toplevel(self.root)#custom for the password
+        dialog = tk.Toplevel(self.root)
         dialog.title("Admin Authentication")
         dialog.geometry("400x150")
         dialog.configure(bg='#1a1a1a')
         dialog.transient(self.root)
         dialog.grab_set()
-        dialog.update_idletasks()#center
+        dialog.update_idletasks()
         x = (dialog.winfo_screenwidth() // 2) - (dialog.winfo_width() // 2)
         y = (dialog.winfo_screenheight() // 2) - (dialog.winfo_height() // 2)
         dialog.geometry(f"+{x}+{y}")
@@ -182,7 +365,6 @@ class RedvillShellGUI:
         )
         label.pack(pady=20)
         
-        #Password 
         password_entry = tk.Entry(
             dialog,
             show='*',
@@ -196,8 +378,7 @@ class RedvillShellGUI:
         
         def on_submit():
             password = password_entry.get()
-            #Simple authentication - in real system, verify properly
-            if password:  
+            if password:
                 result['authenticated'] = True
                 dialog.destroy()
             else:
@@ -207,7 +388,6 @@ class RedvillShellGUI:
         def on_cancel():
             dialog.destroy()
         
-        # Buttons
         button_frame = tk.Frame(dialog, bg='#1a1a1a')
         button_frame.pack(pady=10)
         
@@ -244,7 +424,7 @@ class RedvillShellGUI:
     
     def execute_sudo_command(self, cmd):
         self.write_output(f"[sudo] executing: {cmd}\n", '#FFFF00')
-    
+        
         self.sudo_active = True
         self.sudo_timestamp = time.time()
         
@@ -252,7 +432,7 @@ class RedvillShellGUI:
         self.admin.admin_mode = True
         
         try:
-            self.execute_command(cmd)#exc command in sudo
+            self.execute_command(cmd)
         finally:
             self.admin.admin_mode = original_admin_state
     
@@ -265,14 +445,14 @@ class RedvillShellGUI:
         if self.current_settings['history_enabled']:
             self.history.append(cmd)
         self.history_index = -1
-    
+        
         directory = os.getcwd().split(os.sep)[-1]
         self.write_output(f"{directory}>> {cmd}\n", '#FFFFFF')
         self.input_entry.delete(0, tk.END)
+        self.suggestion_label.config(text="")  # Clear suggestions
         self.execute_command(cmd)
         self.update_prompt()
-        
-#------------------------------------------ Settings
+    
     def settings(self, args):
         if not args:
             self._show_current_settings()
@@ -339,7 +519,7 @@ Type 'setting help' for available options
 ────────────────────────────────────────────
 '''
         self.write_output(settings_text)
-
+    
     def _show_setting_options(self):
         options_text = '''────────────────────────────────────────────
               Available Settings Options
@@ -376,7 +556,7 @@ COLOR FORMATS:
 ────────────────────────────────────────────
 '''
         self.write_output(options_text)
-
+    
     def _change_theme(self, theme):
         themes = {
             'matrix': {'bg': 'black', 'fg': '#00FF00'},
@@ -418,7 +598,7 @@ COLOR FORMATS:
                 self.write_output("Font size must be between 8 and 20\n", '#FF0000')
         except ValueError:
             self.write_output("Font size must be a number\n", '#FF0000')
-
+            
     def _change_font_color(self, color):
         named_colors = {
             'green': '#00FF00',
@@ -455,7 +635,7 @@ COLOR FORMATS:
         self.prompt_label.config(fg=final_color)
         self.current_settings['font_color'] = final_color
         self.write_output(f"Font color changed to {final_color}\n", '#00FF00')
-
+        
     def _change_bg_color(self, color):
         named_colors = {
             'black': '#000000',
@@ -486,13 +666,13 @@ COLOR FORMATS:
         self.root.configure(bg=final_color)
         self.current_settings['bg_color'] = final_color
         self.write_output(f"Background color changed to {final_color}\n", '#00FF00')
-
+        
     def _apply_colors(self, bg, fg):
         self.output_area.config(bg=bg, fg=fg)
         self.input_entry.config(bg=bg, fg=fg, insertbackground=fg)
         self.prompt_label.config(bg=bg, fg=fg)
         self.root.configure(bg=bg)
-
+        
     def _change_prompt_style(self, style):
         style_lower = style.lower()
         if style_lower in ['directory', 'basic', 'simple']:
@@ -505,7 +685,7 @@ COLOR FORMATS:
             self.write_output(f"Prompt style changed to 'detailed'\n", '#00FF00')
         else:
             self.write_output("Available styles: directory, detailed\n", '#FF0000')
-
+            
     def _toggle_autocomplete(self, value):
         if value.lower() in ['on', 'true', 'yes', '1', 'enable']:
             self.current_settings['autocomplete'] = True
@@ -530,7 +710,7 @@ COLOR FORMATS:
             self.write_output("Command history disabled\n", '#00FF00')
         else:
             self.write_output("Use 'history clear', 'history on', or 'history off'\n", '#FF0000')
-    
+            
     def _reset_settings(self):
         self.current_settings = {
             'theme': 'matrix',
@@ -548,7 +728,7 @@ COLOR FORMATS:
         self.prompt_label.config(font=font)
         self.update_prompt()
         self.write_output("All settings reset to default\n", '#00FF00')
-    
+        
     def _export_settings(self):
         export_text = f'''────────────────────────────────────────────
             REDVILLSHELL – Settings Export
@@ -565,17 +745,17 @@ Copy these commands to restore your settings
 ────────────────────────────────────────────
 '''
         self.write_output(export_text)
-#---------------------------------------------
-    
-    def execute_command(self, cmd):#sudo checker pag first ba or nah
+
+#--------------------
+    def execute_command(self, cmd):
         if cmd.lower().startswith('sudo '):
             remaining_cmd = cmd[5:].strip()  #! sudo prefi
             if remaining_cmd:
                 self.execute_sudo_command(remaining_cmd)
             else:
                 self.write_output("ERROR: sudo requires a command\n", '#FF0000')
-            return
-        
+                return
+            
         parts = cmd.split(None, 1)
         command = parts[0].lower()
         args = parts[1] if len(parts) > 1 else ''
@@ -746,7 +926,7 @@ Copy these commands to restore your settings
     
     def cmd_help(self):
         help_text = '''────────────────────────────────────────────
-           REDVILLSHELL – Command List
+           REDVILLSHELL  | Command List
 ────────────────────────────────────────────
 INFORMATION:
   info                   | Shell information
@@ -764,7 +944,8 @@ GENERAL:
   sudo <command>         | Run command with elevated privileges (NO PASSWORD)
   
 ADMIN:
-  admin <T/F>            | Enable/disable admin mode (REQUIRES PASSWORD)
+  admin <T/F>            | Enable/disable admin mode (REQUIRES PASSWORD FOR SAFETY -RED)
+  sudo  <command>        | Execute command as a admin (FOR SAFETY SABI NI RED)
   sysinfo                | Show system information
   hardware               | Show hardware information
   
@@ -807,17 +988,6 @@ MATH:
   round <num> <dec>      | Round number
   last                   | Show last result
   mstore/mrecall/mclear  | Memory operations
-────────────────────────────────────────────
-SUDO USAGE:
-  sudo <command>         | Execute any command with admin rights
-  Example: sudo delete f++ folder_name
-  Example: sudo install package_name
-  Note: NO password required (5 min session timeout)
-  
-ADMIN USAGE:
-  admin T                | Enable full admin session
-  admin F                | Disable admin session  
-  Note: REQUIRES PASSWORD authentication
 ────────────────────────────────────────────'''
         self.write_output(help_text)
     
@@ -848,7 +1018,7 @@ Notes by me:
         version_text = f'''────────────────────────────────────────────
            REDVILLSHELL — Version {version}
 ────────────────────────────────────────────
->> 11/12/25 - Prototype 0.1.5 - Python 
+>> 11/12/25 - Prototype {version} - Python 
 - SSIDS and Network login
 - Enhanced Settings with Font Color
 - Run program 
@@ -857,14 +1027,15 @@ Notes by me:
 - Package simulation 
 - Sudo command (NO PASSWORD)
 - Admin mode (REQUIRES PASSWORD)
+- Auto fill
 ────────────────────────────────────────────
 '''
         self.write_output(version_text)
 
 def main():
-    root = tk.Tk()  
+    root = tk.Tk()
     app = RedvillShellGUI(root)
     root.mainloop()
 
 if __name__ == "__main__":
-    main()#nyehehehe
+    main()
