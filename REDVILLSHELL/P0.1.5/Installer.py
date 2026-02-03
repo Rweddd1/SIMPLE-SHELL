@@ -35,7 +35,7 @@ class REDVILLSHELLInstaller:
         self.setup_gui()
         
     def center_window(self):
-        """Center the window on screen"""
+        
         self.root.update_idletasks()
         width = self.root.winfo_width()
         height = self.root.winfo_height()
@@ -44,7 +44,7 @@ class REDVILLSHELLInstaller:
         self.root.geometry(f'{width}x{height}+{x}+{y}')
     
     def setup_gui(self):
-        """Setup the installer GUI"""
+        
         # Header
         header_frame = tk.Frame(self.root, bg='#1a1a1a')
         header_frame.pack(fill=tk.X, padx=20, pady=20)
@@ -193,7 +193,7 @@ class REDVILLSHELLInstaller:
         self.launch_button.pack(side=tk.RIGHT, padx=5)
     
     def log_message(self, message, color='#00ff00'):
-        """Add message to log with specified color"""
+        
         self.log_text.config(state=tk.NORMAL)
         self.log_text.insert(tk.END, f"{message}\n", color)
         self.log_text.see(tk.END)
@@ -201,13 +201,13 @@ class REDVILLSHELLInstaller:
         self.root.update()
     
     def update_progress(self, value, text):
-        """Update progress bar and label"""
+      
         self.progress_bar['value'] = value
         self.progress_label.config(text=text)
         self.root.update()
     
     def check_python_version(self):
-        """Check if Python version is supported"""
+      
         version = sys.version_info
         self.log_message(f"Checking Python version: {version.major}.{version.minor}.{version.micro}")
         
@@ -352,10 +352,11 @@ class REDVILLSHELLInstaller:
             messagebox.showerror("Launch Error", f"Failed to launch REDVILLSHELL:\n{str(e)}")
 
 def main():
-    """Main function to run the installer"""
+   
     root = tk.Tk()
     app = REDVILLSHELLInstaller(root)
     root.mainloop()
 
 if __name__ == "__main__":
+
     main()
